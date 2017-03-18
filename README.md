@@ -11,7 +11,7 @@ NfcScan is an android app, whitch can scan NFC tag id and log to file.
 ### Features
 
 - Read NFC tag id
-- Save tag id to /sdcard/NfcScan/histoty.txt
+- Save tag id to /sdcard/NfcScan/history.txt
 - Clear history
 - Share the history file
 
