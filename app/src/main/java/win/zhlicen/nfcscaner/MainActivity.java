@@ -1,6 +1,7 @@
 package win.zhlicen.nfcscaner;
 
 import android.graphics.Color;
+import android.os.Build;
 import android.os.Bundle;
 
 import android.support.v7.app.AppCompatActivity;
@@ -19,7 +20,10 @@ import android.content.Context;
 import android.app.PendingIntent;
 import android.widget.Toast;
 import java.io.File;
+import java.io.InputStreamReader;
 import java.io.RandomAccessFile;
+import java.util.Map;
+
 import android.widget.TextSwitcher;
 import android.widget.ViewSwitcher.ViewFactory;
 import android.view.View;
@@ -35,6 +39,13 @@ import android.media.RingtoneManager;
 import android.media.Ringtone;
 import android.os.Vibrator;
 import android.widget.CheckBox;
+import java.io.FileInputStream;
+import java.io.InputStream;
+import java.io.BufferedReader;
+import java.io.IOException;
+import android.content.DialogInterface;
+import android.app.AlertDialog;
+
 
 public class MainActivity extends AppCompatActivity {
     TextView tvReading;
@@ -47,6 +58,10 @@ public class MainActivity extends AppCompatActivity {
     String currentCode = "";
     CheckBox chkSound;
     CheckBox chkVibrate;
+    Map<String, String> mapAdded;
+    static final int PERMISSION_REQ_CODE_READ_STORAGE = 0;
+    static final int PERMISSION_REQ_CODE_WRITE_STORAGE = 1;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -78,27 +93,113 @@ public class MainActivity extends AppCompatActivity {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
                 != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
-                    0);
+                    PERMISSION_REQ_CODE_WRITE_STORAGE);
         }
 
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
                 != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_EXTERNAL_STORAGE},
-                    1);
+                    PERMISSION_REQ_CODE_READ_STORAGE);
         }
+
+        this.initialAddedMap();
 
         this.context = this.getApplicationContext();
         this.nfcAdapter = NfcAdapter.getDefaultAdapter(this.context);
 
     }
 
+    @Override
+    public void onRequestPermissionsResult(int requestCode,
+                                           String permissions[], int[] grantResults) {
+        switch (requestCode) {
+            case PERMISSION_REQ_CODE_READ_STORAGE: {
+                // If request is cancelled, the result arrays are empty.
+                if (grantResults.length > 0
+                        && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    initialAddedMap();
+
+                } else {
+                    new AlertDialog.Builder(context)
+                            .setTitle("Warning")
+                            .setMessage("App can not work properly if no storage permission is granted!")
+                            .setPositiveButton("Quit", new DialogInterface.OnClickListener() {
+                                public void onClick(DialogInterface dialog, int which) {
+                                    finishAndRemoveTask();
+                                }
+                            })
+                            .setIcon(android.R.drawable.ic_dialog_alert)
+                            .show();
+                }
+                return;
+            }
+            case PERMISSION_REQ_CODE_WRITE_STORAGE: {
+                if (grantResults.length > 0
+                        && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+
+                } else {
+                    new AlertDialog.Builder(context)
+                            .setTitle("Warning")
+                            .setMessage("App can not work properly if no storage permission is granted!")
+                            .setPositiveButton("Quit", new DialogInterface.OnClickListener() {
+                                public void onClick(DialogInterface dialog, int which) {
+                                    finishAndRemoveTask();
+                                }
+                            })
+                            .setIcon(android.R.drawable.ic_dialog_alert)
+                            .show();
+                }
+            }
+        }
+    }
+
     private void setReadingText(String text) {
         tvReading.setText(text);
     }
 
-    private void playSound() {
+    private void initialAddedMap(){
+        InputStream fis = null;
         try {
-            Uri notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+            fis = new FileInputStream(filePath + fileName);
+            if (fis != null) {
+
+                InputStreamReader chapterReader = new InputStreamReader(fis);
+                BufferedReader buffReader = new BufferedReader(chapterReader);
+
+                String line;
+
+                // read every line of the file into the line-variable, on line at the time
+                do {
+                    line = buffReader.readLine();
+                    if(!mapAdded.containsKey(line)) {
+                        mapAdded.put(line, "");
+                    }
+                } while (line != null);
+
+            }
+        }
+        catch (Exception e) {
+
+        }
+        finally {
+            // close the file.
+            if(fis != null) {
+                    try {
+                    fis.close();
+                }
+                catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+        Toast.makeText(this, mapAdded.size() + "Records loaded!", Toast.LENGTH_SHORT).show();
+    }
+
+    private void playRingtone(int type) {
+        if(!chkSound.isChecked())
+            return;
+        try {
+            Uri notification = RingtoneManager.getDefaultUri(type);
             Ringtone r = RingtoneManager.getRingtone(getApplicationContext(), notification);
             r.play();
         } catch (Exception e) {
@@ -106,12 +207,15 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void vibrate() {
+    private void vibrate(int delay) {
+        if(!chkVibrate.isChecked())
+            return;
         Vibrator v = (Vibrator) this.context.getSystemService(Context.VIBRATOR_SERVICE);
         if(v != null)
-            v.vibrate(50);
+            v.vibrate(delay);
     }
-    private boolean onClearMenu(MenuItem item){
+    private boolean onClearMenu(){
+        mapAdded.clear();
         String historyPath = filePath + fileName;
         File file = new File(historyPath);
         if(file.exists() && file.delete()) {
@@ -127,7 +231,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-    private boolean onShareMenu(MenuItem item){
+    private boolean onShareMenu(){
         String historyPath = filePath + fileName;
         Intent intentShareFile = new Intent(Intent.ACTION_SEND);
         File file = new File(historyPath);
@@ -233,18 +337,24 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }
             }
-            if(chkSound.isChecked())
-                playSound();
-            if(chkVibrate.isChecked())
-                vibrate();
+            playRingtone(RingtoneManager.TYPE_NOTIFICATION);
+            playRingtone(RingtoneManager.TYPE_NOTIFICATION);
+            vibrate(50);
             new Handler().postDelayed(new Runnable() {
                 @Override
                 public void run() {
                     if (currentCode == "") {
+                        vibrate(50);
                         tvReading.setText("N/A");
                         tsNotify.setText("No valid data, try a again!");
-                    } else {
+                    }
+                    else if(mapAdded.containsKey(currentCode)) {
+                        vibrate(50);
+                        tsNotify.setText("Tag already exist, try a another!");
+                    }
+                    else {
                         newTag(currentCode);
+                        mapAdded.put(currentCode, "");
                         currentCode = "";
                     }
                 }
@@ -270,10 +380,10 @@ public class MainActivity extends AppCompatActivity {
 
         //noinspection SimplifiableIfStatement
         if (id == R.id.action_clear) {
-            return onClearMenu(item);
+            return onClearMenu();
         }
         else if (id == R.id.action_share) {
-            return onShareMenu(item);
+            return onShareMenu();
         }
 
         return super.onOptionsItemSelected(item);
