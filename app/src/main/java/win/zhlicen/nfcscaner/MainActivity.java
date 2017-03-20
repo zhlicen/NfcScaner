@@ -1,7 +1,6 @@
 package win.zhlicen.nfcscaner;
 
 import android.graphics.Color;
-import android.os.Build;
 import android.os.Bundle;
 
 import android.support.v7.app.AppCompatActivity;
@@ -22,6 +21,8 @@ import android.widget.Toast;
 import java.io.File;
 import java.io.InputStreamReader;
 import java.io.RandomAccessFile;
+import java.util.Dictionary;
+import java.util.HashMap;
 import java.util.Map;
 
 import android.widget.TextSwitcher;
@@ -58,7 +59,7 @@ public class MainActivity extends AppCompatActivity {
     String currentCode = "";
     CheckBox chkSound;
     CheckBox chkVibrate;
-    Map<String, String> mapAdded;
+    Map<String, String> mapAdded = new HashMap<>();
     static final int PERMISSION_REQ_CODE_READ_STORAGE = 0;
     static final int PERMISSION_REQ_CODE_WRITE_STORAGE = 1;
 
@@ -90,21 +91,25 @@ public class MainActivity extends AppCompatActivity {
         tvReading = (TextView) findViewById(R.id.tvReading);
         tvReading.setText("N/A");
         tsNotify.setText("Scan a tag!");
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
-                    PERMISSION_REQ_CODE_WRITE_STORAGE);
-        }
+        this.context = this.getApplicationContext();
+
 
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
                 != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_EXTERNAL_STORAGE},
                     PERMISSION_REQ_CODE_READ_STORAGE);
+        } else {
+            this.initialAddedMap();
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                    != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                        PERMISSION_REQ_CODE_WRITE_STORAGE);
+            }
         }
 
-        this.initialAddedMap();
 
-        this.context = this.getApplicationContext();
+
+
         this.nfcAdapter = NfcAdapter.getDefaultAdapter(this.context);
 
     }
@@ -118,9 +123,14 @@ public class MainActivity extends AppCompatActivity {
                 if (grantResults.length > 0
                         && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                     initialAddedMap();
+                    if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                            != PackageManager.PERMISSION_GRANTED) {
+                        ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                                PERMISSION_REQ_CODE_WRITE_STORAGE);
+                    }
 
                 } else {
-                    new AlertDialog.Builder(context)
+                    new AlertDialog.Builder(this)
                             .setTitle("Warning")
                             .setMessage("App can not work properly if no storage permission is granted!")
                             .setPositiveButton("Quit", new DialogInterface.OnClickListener() {
@@ -128,7 +138,6 @@ public class MainActivity extends AppCompatActivity {
                                     finishAndRemoveTask();
                                 }
                             })
-                            .setIcon(android.R.drawable.ic_dialog_alert)
                             .show();
                 }
                 return;
@@ -138,7 +147,7 @@ public class MainActivity extends AppCompatActivity {
                         && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
 
                 } else {
-                    new AlertDialog.Builder(context)
+                    new AlertDialog.Builder(this)
                             .setTitle("Warning")
                             .setMessage("App can not work properly if no storage permission is granted!")
                             .setPositiveButton("Quit", new DialogInterface.OnClickListener() {
@@ -146,7 +155,6 @@ public class MainActivity extends AppCompatActivity {
                                     finishAndRemoveTask();
                                 }
                             })
-                            .setIcon(android.R.drawable.ic_dialog_alert)
                             .show();
                 }
             }
@@ -192,7 +200,7 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         }
-        Toast.makeText(this, mapAdded.size() + "Records loaded!", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, mapAdded.size() + " local records loaded!", Toast.LENGTH_SHORT).show();
     }
 
     private void playRingtone(int type) {
@@ -344,19 +352,21 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void run() {
                     if (currentCode == "") {
-                        vibrate(50);
+                        vibrate(20);
                         tvReading.setText("N/A");
                         tsNotify.setText("No valid data, try a again!");
+                        vibrate(20);
                     }
                     else if(mapAdded.containsKey(currentCode)) {
-                        vibrate(50);
+                        vibrate(20);
                         tsNotify.setText("Tag already exist, try a another!");
+                        vibrate(10);
                     }
                     else {
                         newTag(currentCode);
                         mapAdded.put(currentCode, "");
-                        currentCode = "";
                     }
+                    currentCode = "";
                 }
             }, 800);
         }
