@@ -179,7 +179,7 @@ public class MainActivity extends AppCompatActivity {
                 // read every line of the file into the line-variable, on line at the time
                 do {
                     line = buffReader.readLine();
-                    if(!mapAdded.containsKey(line)) {
+                    if(!line.isEmpty() && !mapAdded.containsKey(line)) {
                         mapAdded.put(line, "");
                     }
                 } while (line != null);
